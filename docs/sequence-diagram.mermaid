@@ -1,0 +1,59 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant HP as HomePage
+    participant FAB as MountainFab
+    participant AP as AddTxPage
+    participant AI as AmountInput
+    participant CR as CategoryRepository
+    participant TR as TxnRepository
+    participant TD as TxnDao
+    participant DB as SQLite
+    participant AS as AppState
+    participant HC as HomeController
+    participant SR as StatsRepository
+
+    U->>FAB: 点击（收起态）
+    FAB->>FAB: 展开胶囊 300ms
+    U->>FAB: 再次点击
+    FAB->>AP: Navigator.pushNamed /add
+    AP->>CR: listByType(expense)
+    CR-->>AP: List Category
+    AP->>AP: 默认选中第0个分类，类型=支出
+
+    U->>AP: 敲数字键 1 2 .
+    AP->>AI: input(1) / input(2) / input(dot)
+    AI->>AI: 字符串状态机校验 整数7位 小数2位
+    AI-->>AP: display = 12.
+    AP-->>U: 金额卡刷新 40px 大字号
+
+    U->>AP: 选择分类 / 输入备注 / 选择日期
+    U->>AP: 点击保存
+    AP->>AI: minor 分
+
+    alt 金额小于等于0
+        AP-->>U: Toast 请输入金额 不落库
+    else 类型等于转账
+        AP-->>U: Toast 转账功能暂未开放 回落支出 不落库
+    else 正常
+        AP->>TR: add(bookId, categoryId, type, minor, note, date, time)
+        TR->>TR: 校验 minor 大于0 且 category 存在
+        TR->>TD: insert(txn.toMap())
+        TD->>DB: INSERT INTO txn
+        DB-->>TD: newId
+        TD-->>TR: newId
+        TR->>AS: bumpData 递增 dataVersion
+        TR-->>AP: Result success newId
+        AP->>AP: Navigator.pop
+        AP-->>U: Toast 已保存 餐饮 -12.00
+    end
+
+    AS-->>HC: notifyListeners
+    HC->>SR: homeStats(bookId, today)
+    SR->>TD: sumByRange / countByRange / listByDate
+    TD->>DB: SELECT SUM amount_minor
+    DB-->>TD: 聚合结果 分
+    TD-->>SR: int
+    SR-->>HC: HomeStats
+    HC->>HC: notifyListeners
+    HC-->>HP: 重建 标题/概览卡/今日支出/预算卡/当日明细

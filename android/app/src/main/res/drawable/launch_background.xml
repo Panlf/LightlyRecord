@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  冷启动窗口底色：对齐「薄荷绿」预设的 AppColors.bg（#F7FAF8），
+  避免 Flutter 首帧前出现白色闪烁。深色系统下由 values-night 覆盖。
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/lightly_launch_bg" />
+
+    <!-- You can insert your own image assets here -->
+    <!-- <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/launch_image" />
+    </item> -->
+</layer-list>

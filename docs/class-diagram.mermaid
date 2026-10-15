@@ -1,0 +1,392 @@
+classDiagram
+    direction TB
+
+    class AppLocator {
+        -Database db
+        -BookRepository bookRepo
+        -CategoryRepository categoryRepo
+        -TxnRepository txnRepo
+        -StatsRepository statsRepo
+        -BudgetRepository budgetRepo
+        -PrefRepository prefRepo
+        +init() void
+        +dispose() void
+    }
+
+    class AppDatabase {
+        +int dbVersion
+        +String dbName
+        +open() Database
+        +close() void
+    }
+
+    class Migrations {
+        +Map scripts
+    }
+
+    class SeedData {
+        +run(db) void
+    }
+
+    class SampleData {
+        +load(db) void
+        +clear(db) void
+    }
+
+    class Book {
+        +int id
+        +String name
+        +String iconKey
+        +String iconColor
+        +int sortOrder
+        +bool isDefault
+        +int createdAt
+        +int updatedAt
+        +bool archived
+        +toMap() Map
+        +fromMap(m) Book
+        +copyWith() Book
+    }
+
+    class Category {
+        +int id
+        +String name
+        +TxType type
+        +String iconKey
+        +int iconCodepoint
+        +String iconFontFamily
+        +String colorBg
+        +String colorStroke
+        +int sortOrder
+        +bool isSystem
+        +bool enabled
+        +int bookId
+        +toMap() Map
+        +fromMap(m) Category
+        +copyWith() Category
+    }
+
+    class Txn {
+        +int id
+        +int bookId
+        +int categoryId
+        +TxType type
+        +int amountMinor
+        +String note
+        +String txDate
+        +String txTime
+        +int createdAt
+        +int updatedAt
+        +String categoryName
+        +String categoryColorStroke
+        +int categoryIconCodepoint
+        +toMap() Map
+        +fromMap(m) Txn
+        +fromMapJoined(m) Txn
+        +copyWith() Txn
+    }
+
+    class Budget {
+        +int monthlyAmountMinor
+        +bool enabled
+        +int updatedAt
+        +toMap() Map
+        +fromMap(m) Budget
+    }
+
+    class TxType {
+        <<enumeration>>
+        expense
+        income
+        transfer
+        +int code
+    }
+
+    class BookDao {
+        +list() List
+        +insert(b) int
+        +update(b) void
+        +delete(id) void
+        +touch(id) void
+    }
+
+    class CategoryDao {
+        +listByType(type) List
+        +insert(c) int
+        +update(c) void
+        +delete(id) void
+        +reorder(ids) void
+    }
+
+    class TxnDao {
+        +insert(t) int
+        +update(t) void
+        +delete(id) void
+        +byDate(bookId, date) List
+        +sumByRange(bookId, from, to, type) int
+        +countByRange(bookId, from, to, type) int
+        +groupByCategory(bookId, from, to, type) List
+        +distinctDates(bookId) List
+    }
+
+    class BudgetDao {
+        +get() Budget
+        +upsert(b) void
+    }
+
+    class PrefDao {
+        +get(key) String
+        +set(key, value) void
+        +all() Map
+    }
+
+    class BookRepository {
+        <<abstract>>
+        +list() List
+        +create(name, iconKey, iconColor) int
+        +rename(id, name) void
+        +delete(id) void
+        +ensureDefault() Book
+        +count() int
+    }
+
+    class CategoryRepository {
+        <<abstract>>
+        +listByType(type, bookId) List
+        +create(name, type, iconKey, codepoint) int
+        +update(c) void
+        +delete(id) void
+        +reorder(ids) void
+    }
+
+    class TxnRepository {
+        <<abstract>>
+        +add(bookId, categoryId, type, minor, note, date, time) Result
+        +update(t) Result
+        +delete(id) Result
+        +getById(id) Txn
+        +listByDate(bookId, date) List
+        +sumByRange(bookId, from, to, type) int
+        +groupByCategory(bookId, from, to, type) List
+        +streakInfo(bookId) StreakInfo
+        +globalCountAll() int
+        +firstTxDate(bookId) DateTime
+    }
+
+    class StatsRepository {
+        <<abstract>>
+        +homeStats(bookId, today) HomeStats
+        +chartBundle(bookId, mode, period, today) ChartBundle
+        +calendarMonth(bookId, year, month, today) CalendarMonth
+        +bookStats(bookId, today) BookStats
+        +globalStats(today) GlobalStats
+    }
+
+    class BudgetRepository {
+        <<abstract>>
+        +get() Budget
+        +save(enabled, monthlyMinor) Result
+    }
+
+    class PrefRepository {
+        <<abstract>>
+        +get(key) String
+        +set(key, value) void
+        +all() Map
+    }
+
+    class AppState {
+        -PrefRepository pref
+        +int currentBookId
+        +String themeId
+        +String nickname
+        +int dataVersion
+        +init() void
+        +switchBook(id) void
+        +setTheme(id) void
+        +setNickname(n) void
+        +bumpData() void
+    }
+
+    class ThemeController {
+        -PrefRepository pref
+        +AppColors colors
+        +apply(id) void
+    }
+
+    class HomeController {
+        -StatsRepository stats
+        +HomeStats data
+        +bool loading
+        +load() void
+    }
+
+    class StatsController {
+        -StatsRepository stats
+        +ChartBundle bundle
+        +TxType mode
+        +String period
+        +setMode(m) void
+        +setPeriod(p) void
+    }
+
+    class CalendarController {
+        -StatsRepository stats
+        +CalendarMonth month
+        +moveMonth(step) void
+        +pickDay(date) void
+    }
+
+    class BookController {
+        -BookRepository books
+        -StatsRepository stats
+        +List items
+        +BookStats stat
+        +create(name) void
+        +switchTo(id) void
+    }
+
+    class MeController {
+        -StatsRepository stats
+        -BookRepository books
+        +GlobalStats stat
+        +load() void
+    }
+
+    class AppColors {
+        <<ThemeExtension>>
+        +Color bg
+        +Color card
+        +Color line
+        +Color line2
+        +Color track
+        +Color track2
+        +Color ink
+        +Color ink2
+        +Color ink3
+        +Color green
+        +Color greenDeep
+        +Color greenLight
+        +Color red
+        +Color barIdle
+        +Color switchOff
+        +Color dashed
+        +Color tabbarBg
+        +Color fabShadow
+        +bool isDark
+        +double heatBase
+        +double heatSpan
+        +copyWith() AppColors
+        +lerp(other, t) AppColors
+    }
+
+    class AppTheme {
+        +Map presets
+        +of(id) AppColors
+        +buildThemeData(c) ThemeData
+    }
+
+    class ExportService {
+        +exportCsv() Result
+        +exportJson() Result
+    }
+
+    class AmountInput {
+        -String raw
+        +String display
+        +int minor
+        +input(k) void
+        +backspace() void
+        +reset() void
+    }
+
+    class HomeStats {
+        +int monthExpense
+        +int monthIncome
+        +int monthBalance
+        +double balanceRate
+        +double momRatio
+        +int dailyAvgExpense
+        +int todayExpense
+        +int todayCount
+        +List todayTxns
+        +BudgetStatus budget
+        +String bookName
+    }
+
+    class ChartBundle {
+        +List slices
+        +int totalMinor
+        +String centerLabel
+        +List bars
+        +String barTitle
+        +CompareItem yoy
+        +CompareItem mom
+        +String momLabel
+        +BalanceCard balance
+        +String rangeLabel
+    }
+
+    class CalendarMonth {
+        +int year
+        +int month
+        +List cells
+        +int maxDayExpense
+        +DayDetail selectedDay
+    }
+
+    AppLocator --> AppDatabase : 持有
+    AppDatabase ..> Migrations : 调度
+    AppDatabase ..> SeedData : onCreate 调用
+    SeedData ..> Book : 播种
+    SeedData ..> Category : 播种
+    SampleData ..> Txn : 生成示例
+    AppLocator --> BookRepository : 创建
+    AppLocator --> CategoryRepository : 创建
+    AppLocator --> TxnRepository : 创建
+    AppLocator --> StatsRepository : 创建
+    AppLocator --> BudgetRepository : 创建
+    AppLocator --> PrefRepository : 创建
+
+    BookRepository ..> BookDao : 依赖
+    CategoryRepository ..> CategoryDao : 依赖
+    TxnRepository ..> TxnDao : 依赖
+    BudgetRepository ..> BudgetDao : 依赖
+    PrefRepository ..> PrefDao : 依赖
+
+    BookDao ..> Book : 映射
+    CategoryDao ..> Category : 映射
+    TxnDao ..> Txn : 映射
+    BudgetDao ..> Budget : 映射
+
+    Txn --> TxType : 使用
+    Category --> TxType : 使用
+    StatsRepository ..> TxnRepository : 组合查询
+    StatsRepository ..> BudgetRepository : 预算状态
+
+    AppState --> PrefRepository : 依赖
+    AppState --> BookRepository : 依赖
+    ThemeController --> PrefRepository : 依赖
+    HomeController --> StatsRepository : 依赖
+    StatsController --> StatsRepository : 依赖
+    CalendarController --> StatsRepository : 依赖
+    BookController --> BookRepository : 依赖
+    BookController --> StatsRepository : 依赖
+    MeController --> StatsRepository : 依赖
+    MeController --> BookRepository : 依赖
+
+    HomeController ..> AppState : 监听刷新
+    StatsController ..> AppState : 监听刷新
+    CalendarController ..> AppState : 监听刷新
+    BookController ..> AppState : 监听刷新
+    MeController ..> AppState : 监听刷新
+
+    ThemeController --> AppColors : 产出
+    AppTheme ..> AppColors : 定义6套预设
+    HomeController ..> HomeStats : 持有
+    StatsController ..> ChartBundle : 持有
+    CalendarController ..> CalendarMonth : 持有
+    ExportService --> BookDao : 读取
+    ExportService --> CategoryDao : 读取
+    ExportService --> TxnDao : 读取
+    AmountInput ..> Txn : 产出金额

@@ -1,0 +1,41 @@
+name: lightly_record
+description: 轻记 · 极简记账（Flutter + SQLite 纯本地 Android App）
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.0
+  flutter: '>=3.32.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 中文日期选择器 + Material 本地化（R03 日期选择必需）
+  flutter_localizations:
+    sdk: flutter
+
+  # ★ 必需。SQLite 本地存储（R02）
+  sqflite: ^2.4.1
+  # ★ 必需。join(getDatabasesPath(), dbName)
+  path: ^1.9.0
+  # ★ 必需。状态管理（ChangeNotifier + MultiProvider）
+  provider: ^6.1.2
+  # ★ 必需。NumberFormat 千分位 / DateFormat 日期格式
+  intl: ^0.20.2
+  # ▲ 必需（R21）。获取外部存储目录落盘导出文件
+  path_provider: ^2.1.4
+  # ▲ 必需（R22）。读取真实版本名 / 版本号
+  package_info_plus: ^8.1.0
+  # ○ 可选（R21）。系统分享面板；若 Android 构建冲突可移除并降级为「仅保存到本地」
+  share_plus: ^10.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  sqflite_common_ffi: ^2.3.6
+
+flutter:
+  # 图标全部使用 Material Icons 字体，零资源体积
+  uses-material-design: true

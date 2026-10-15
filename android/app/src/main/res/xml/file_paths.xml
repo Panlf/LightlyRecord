@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 白名单：R21 导出分享（share_plus）用。
+
+  架构文档 §8.1：导出文件落「应用私有外部目录」
+  Android/data/com.lightly.record/files/export/，该目录对应的
+  FileProvider 路径声明即 external-files-path。external-path 一并放开，
+  兜底覆盖部分机型上 getExternalStorageDirectory 解析到公共外部存储的情况。
+
+  本 App 不申请任何运行时存储权限。
+-->
+<paths>
+    <external-files-path name="app_files" path="." />
+    <external-path name="external" path="." />
+</paths>

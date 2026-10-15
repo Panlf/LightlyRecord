@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      冷启动窗口底色。取值对齐 lib/theme/app_theme.dart 中「薄荷绿」预设的
+      AppColors.bg（#F7FAF8），避免 Flutter 首帧前出现白色闪烁。
+      切换主题后由 Dart 侧接管，此值仅影响启动瞬间。
+    -->
+    <color name="lightly_launch_bg">#F5F8F6</color>
+</resources>

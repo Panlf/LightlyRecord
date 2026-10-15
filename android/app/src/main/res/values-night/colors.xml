@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      系统深色模式下的冷启动窗口底色，对齐「暗夜」预设的 AppColors.bg（#1F2A25）。
+      用户在 App 内切换主题后由 Dart 侧接管，此值只影响启动瞬间。
+    -->
+    <color name="lightly_launch_bg">#1F2A25</color>
+</resources>
