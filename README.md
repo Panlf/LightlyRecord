@@ -147,7 +147,7 @@ flutter build apk --release
 # 产物：build/app/outputs/flutter-apk/app-release.apk
 ```
 
-> 注：本项目发布构建复用调试签名（`android/app/build.gradle` 中 `signingConfigs.debug`），便于本地自签测试；正式上架前请替换为专属发布密钥。
+> 注：发布构建默认读取本地 `android/key.properties` + `android/key.jks` 专属密钥签名（密钥与口令已通过 `.gitignore` 忽略，绝不入库）；若这两个文件不存在（如 clone 后未配置专属密钥），则回退到 debug keystore 自签，保证 `flutter build apk --release` 仍可直出可安装包。正式上架前请妥善保管你的发布密钥——一旦用某把密钥上架应用商店，后续更新必须永远使用同一把密钥，丢失将无法更新。
 
 ---
 

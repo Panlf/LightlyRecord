@@ -53,3 +53,7 @@ app.*.map.json
 
 # Android 本地配置（含本机 SDK 路径，机器相关，勿入库）
 **/android/local.properties
+
+# Android 发布签名密钥与口令（含私钥，严禁入库；本地构建专属）
+android/key.properties
+android/key.jks
