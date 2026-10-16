@@ -66,9 +66,13 @@ class _ToastWidget extends StatelessWidget {
     final c = Theme.of(context).extension<AppColors>()!;
     final mq = MediaQuery.of(context);
 
+    // 跟随当前主题的主色：成功态取主题绿，错误态取红。
+    // 以前用 c.ink（近黑），跟页面主题完全脱钩，深色/浅色主题下都显得脏。
+    final base = error ? c.red : c.green;
+
     return Positioned(
-      left: 40,
-      right: 40,
+      left: 48,
+      right: 48,
       // 键盘弹出时随 inset 上移，避免 Toast 浮在自定义键盘上挡按键
       bottom: mq.size.height * 0.28 + mq.viewInsets.bottom,
       child: IgnorePointer(
@@ -85,26 +89,42 @@ class _ToastWidget extends StatelessWidget {
               ),
             ),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
               decoration: BoxDecoration(
-                color: error ? AppColors.redDeep : c.ink,
-                borderRadius: BorderRadius.circular(14),
+                color: base,
+                borderRadius: BorderRadius.circular(AppDimens.toastRadius),
                 boxShadow: [
                   BoxShadow(
-                    color: c.ink.withValues(alpha: 0.18),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
+                    color: base.withValues(alpha: 0.26),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.white,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    error ? Icons.error_outline : Icons.check_circle_outline,
+                    size: 15,
+                    color: AppColors.onGreen,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        // 不带任何 decoration：这里以前混进来过下划线，
+                        // 在深色底上看着就是文字下面两条横线。
+                        decoration: TextDecoration.none,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

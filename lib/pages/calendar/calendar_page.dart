@@ -37,6 +37,21 @@ class _CalendarPageState extends State<CalendarPage> {
   /// 页面级 Controller 引用（`initState` 取出，供 `dispose` 反注册用）。
   late final CalendarController _controller;
 
+  /// 最近一次翻月方向：`1` = 下一月，`-1` = 上一月。
+  ///
+  /// 供月历格子的滑入 / 滑出动画取方向（左滑看下月，格子从右边进来）。
+  int _dir = 1;
+
+  /// 翻月统一入口：先记方向再翻，保证按钮与手势两条路径动画一致。
+  void _goMonth(bool next) {
+    setState(() => _dir = next ? 1 : -1);
+    if (next) {
+      _controller.nextMonth();
+    } else {
+      _controller.prevMonth();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -85,45 +100,51 @@ class _CalendarPageState extends State<CalendarPage> {
               _Header(
                 year: controller.year,
                 month: controller.month,
-                onPrev: controller.prevMonth,
-                onNext: controller.nextMonth,
+                onPrev: () => _goMonth(false),
+                onNext: () => _goMonth(true),
               ),
               const SizedBox(height: AppDimens.pageGap),
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 卡内头部：年月（翻月按钮在页头右侧）
-                    Text(
-                      ymLabelCn(DateTime(controller.year, controller.month)),
-                      style: TextStyle(
-                        fontSize: AppTypography.cardTitle,
-                        fontWeight: AppTypography.semiBold,
-                        color: c.ink,
+              // 日历卡整体支持左右滑动翻月（与页头 < > 按钮同一入口）
+              _SwipeMonthArea(
+                onSwipe: _goMonth,
+                child: AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 卡内头部：年月（翻月按钮在页头右侧）
+                      Text(
+                        ymLabelCn(DateTime(controller.year, controller.month)),
+                        style: TextStyle(
+                          fontSize: AppTypography.cardTitle,
+                          fontWeight: AppTypography.semiBold,
+                          color: c.ink,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    // 星期行：周一为首列
-                    const _DowRow(),
-                    const SizedBox(height: 4),
-                    if (data == null)
-                      const _CalendarSkeleton()
-                    else
-                      _DayGrid(
-                        cells: data.cells,
-                        onPick: controller.selectDay,
+                      const SizedBox(height: 12),
+                      // 星期行：周一为首列
+                      const _DowRow(),
+                      const SizedBox(height: 4),
+                      if (data == null)
+                        const _CalendarSkeleton()
+                      else
+                        _MonthGridSwitcher(
+                          direction: _dir,
+                          monthKey: '${controller.year}-${controller.month}',
+                          cells: data.cells,
+                          onPick: controller.selectDay,
+                        ),
+                      const SizedBox(height: 10),
+                      // 脚注文案（架构文档 §T04：热度底色说明）
+                      Text(
+                        '颜色越深表示当天支出越多 · 点击日期查看明细',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: AppTypography.chip,
+                          color: c.ink3,
+                        ),
                       ),
-                    const SizedBox(height: 10),
-                    // 脚注文案（架构文档 §T04：热度底色说明）
-                    Text(
-                      '颜色越深表示当天支出越多 · 点击日期查看明细',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: AppTypography.chip,
-                        color: c.ink3,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: AppDimens.pageGap),
@@ -294,9 +315,83 @@ class _DowRow extends StatelessWidget {
   }
 }
 
+/// 左右滑动翻月手势区（包在日历卡外层）。
+///
+/// 只声明 `onHorizontalDragEnd`：纵向仍归外层 `ListView` /
+/// `RefreshIndicator`，横向位移占优时由本手势胜出，二者不打架。
+/// 速度阈值 150 px/s，慢速拖动不会误触发翻月。
+class _SwipeMonthArea extends StatelessWidget {
+  const _SwipeMonthArea({required this.onSwipe, required this.child});
+
+  /// `true` = 下一月（左滑），`false` = 上一月（右滑）。
+  final void Function(bool next) onSwipe;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity.abs() < 150) return;
+        // 左滑（速度为负）→ 下一个月；右滑 → 上一个月
+        onSwipe(velocity < 0);
+      },
+      child: child,
+    );
+  }
+}
+
+/// 月历格子切换动画：新月份按翻页方向滑入，旧月份反向滑出。
+class _MonthGridSwitcher extends StatelessWidget {
+  const _MonthGridSwitcher({
+    required this.direction,
+    required this.monthKey,
+    required this.cells,
+    required this.onPick,
+  });
+
+  /// 翻月方向：`1` = 下一月，`-1` = 上一月。
+  final int direction;
+
+  /// 当前月份标识（`'2026-10'`），作为动画切换的 key。
+  final String monthKey;
+
+  final List<DayCell> cells;
+  final ValueChanged<DateTime> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeOutCubic,
+      transitionBuilder: (child, animation) {
+        // 靠 key 区分进 / 出：带当前月份 key 的是新格子（从前方滑入），
+        // 另一个是旧格子（往反方向滑出）。
+        final incoming = child.key == ValueKey<String>(monthKey);
+        final offsetX = direction * (incoming ? 0.22 : -0.22);
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: Offset(offsetX, 0),
+            end: Offset.zero,
+          ).animate(animation),
+          child: FadeTransition(opacity: animation, child: child),
+        );
+      },
+      child: _DayGrid(
+        key: ValueKey<String>(monthKey),
+        cells: cells,
+        onPick: onPick,
+      ),
+    );
+  }
+}
+
 /// 6×7 = 42 格月历网格（每格高 50）。
 class _DayGrid extends StatelessWidget {
-  const _DayGrid({required this.cells, required this.onPick});
+  const _DayGrid({super.key, required this.cells, required this.onPick});
 
   /// 仓库返回的 42 个格子（含首尾补位空白格）。
   final List<DayCell> cells;
@@ -310,13 +405,17 @@ class _DayGrid extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cellWidth = constraints.maxWidth / 7;
+        // 列间距必须留出来：横向紧贴时，选中块会被相邻格子的热度底色
+        // 「续」上去，邻格有底色看着是直边、没底色就露出自己的圆角，
+        // 于是选中日期的左右边缘时圆时直（见 AppDimens.calCellGap 注释）。
+        final cellWidth =
+            (constraints.maxWidth - AppDimens.calCellGap * 6) / 7;
         return GridView.count(
           crossAxisCount: 7,
-          // 固定格高 50，宽度由父容器均分
-          childAspectRatio: cellWidth / 50,
-          mainAxisSpacing: 2,
-          crossAxisSpacing: 0,
+          // 固定格高 50，宽度扣除列间距后均分
+          childAspectRatio: cellWidth / AppDimens.calCellHeight,
+          mainAxisSpacing: AppDimens.calCellGap,
+          crossAxisSpacing: AppDimens.calCellGap,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
@@ -411,10 +510,10 @@ class _DayCellView extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 50,
+        height: AppDimens.calCellHeight,
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppDimens.calCellRadius),
           border: border,
         ),
         padding: const EdgeInsets.only(top: 7),

@@ -1,7 +1,7 @@
 name: lightly_record
 description: 轻记 · 极简记账（Flutter + SQLite 纯本地 Android App）
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2 # versionCode +1：让系统把图标修正版识别为更新，触发 launcher 刷新图标缓存
 
 environment:
   sdk: ^3.8.0
@@ -29,6 +29,7 @@ dependencies:
   package_info_plus: ^8.1.0
   # ○ 可选（R21）。系统分享面板；若 Android 构建冲突可移除并降级为「仅保存到本地」
   share_plus: ^10.1.2
+  image_picker: ^1.2.1
 
 dev_dependencies:
   flutter_test:

@@ -56,6 +56,7 @@ class AppState extends ChangeNotifier {
   int _bookId = 0;
   String _bookName = '';
   String _nickname = '';
+  String _avatarPath = '';
   int _dataVersion = 0;
   bool _ready = false;
 
@@ -67,6 +68,9 @@ class AppState extends ChangeNotifier {
 
   /// 用户昵称（首页问候语 / 我的页共用，编辑后全机联动）。
   String get nickname => _nickname;
+
+  /// 头像本地路径（空串 = 未设置，UI 显示默认人像）。
+  String get avatarPath => _avatarPath;
 
   /// 数据版本号；每次写操作 +1。
   int get dataVersion => _dataVersion;
@@ -106,6 +110,7 @@ class AppState extends ChangeNotifier {
     _bookId = book.id;
     _bookName = book.name;
     _nickname = await _prefRepository.nickname();
+    _avatarPath = await _prefRepository.avatarPath();
     _ready = true;
     notifyListeners();
   }
@@ -137,6 +142,16 @@ class AppState extends ChangeNotifier {
     final next = trimmed.isEmpty ? fallbackNickname() : trimmed;
     if (next == _nickname) return;
     _nickname = next;
+    notifyListeners();
+  }
+
+  /// 头像变更后同步首页 / 我的页展示。
+  ///
+  /// 落盘由调用方（我的页）经 [PrefRepository.setAvatarPath] 完成，
+  /// 这里只负责广播；空串表示移除头像、回落到默认人像。
+  void refreshAvatar(String path) {
+    if (path == _avatarPath) return;
+    _avatarPath = path;
     notifyListeners();
   }
 

@@ -1,5 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 本 App 无需任何运行时权限：纯本地存储 + 应用私有目录导出 -->
+    <!-- 头像从相册选取才需要读图权限：
+         Android 13+ 走系统「照片选择器」，不需要任何授权；
+         Android 12 及以下由 image_picker 申请读外存。
+         除此之外本 App 仍是零运行时权限（纯本地存储 + 应用私有目录导出）。 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
     <application
         android:label="轻记"
         android:name="${applicationName}"

@@ -48,6 +48,9 @@ class AppConstants {
   /// 用户昵称。
   static const String prefKeyNickname = 'nickname';
 
+  /// 头像在应用私有目录的绝对路径（空 = 未设置，显示默认人像）。
+  static const String prefKeyAvatarPath = 'avatar_path';
+
   /// 记账提醒开关（R23，P2 预留）。
   static const String prefKeyReminderEnabled = 'reminder_enabled';
 

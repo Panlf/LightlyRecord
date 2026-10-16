@@ -11,6 +11,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_dimens.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_dialog.dart';
 import '../../widgets/app_segment.dart';
 import '../../widgets/app_switch.dart';
 import '../../widgets/app_toast.dart';
@@ -676,14 +677,8 @@ class _CategoryEditSheetState extends State<_CategoryEditSheet> {
                 ),
                 cursorColor: c.green,
                 onSubmitted: widget.onRename,
-                decoration: InputDecoration(
-                  labelText: '分类名称',
-                  labelStyle: TextStyle(color: c.ink2),
-                  counterText: '',
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: c.green),
-                  ),
-                ),
+                decoration:
+                    AppDialog.fieldDecoration(context, labelText: '分类名称'),
               ),
               const SizedBox(height: AppDimens.pageGap),
 
@@ -691,16 +686,25 @@ class _CategoryEditSheetState extends State<_CategoryEditSheet> {
               Text('图标', style: _sectionStyle(c)),
               const SizedBox(height: 8),
               _OptionGrid(
-                options: AppIcons.categoryOptions,
+                options: AppIcons.optionsFor(
+                  widget.category.type == TxType.income,
+                ),
                 selectedKey: _iconKey,
                 itemBuilder: (option, selected) => Container(
+                  // 必须显式给尺寸：外层 Center 让 Container 退化成 hug 内部
+                  // 图标，背景圆框就刚好把图标紧包住（见 AppDimens.optionChipSize）。
+                  width: AppDimens.optionChipSize,
+                  height: AppDimens.optionChipSize,
                   decoration: BoxDecoration(
                     color: selected ? c.greenLight : c.track,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius:
+                        BorderRadius.circular(AppDimens.optionChipRadius),
                     border: selected ? Border.all(color: c.green) : null,
                   ),
+                  alignment: Alignment.center,
                   child: Icon(option.icon,
-                      size: 20, color: selected ? c.green : c.ink2),
+                      size: AppDimens.optionChipGlyph,
+                      color: selected ? c.green : c.ink2),
                 ),
                 onTap: (option) {
                   // 先本地换高亮（即时反馈），再落库
@@ -717,6 +721,8 @@ class _CategoryEditSheetState extends State<_CategoryEditSheet> {
                 options: AppIcons.colorPalette,
                 selectedKey: _colorStroke,
                 itemBuilder: (option, selected) => Container(
+                  width: AppDimens.optionChipSize,
+                  height: AppDimens.optionChipSize,
                   decoration: BoxDecoration(
                     color: hexToColor(option.hex),
                     shape: BoxShape.circle,
@@ -724,8 +730,9 @@ class _CategoryEditSheetState extends State<_CategoryEditSheet> {
                         ? Border.all(color: c.ink, width: 2)
                         : null,
                   ),
+                  alignment: Alignment.center,
                   child: selected
-                      ? const Icon(Icons.check, size: 14, color: AppColors.onGreen)
+                      ? const Icon(Icons.check, size: 16, color: AppColors.onGreen)
                       : null,
                 ),
                 onTap: (option) {
@@ -835,7 +842,9 @@ class _CategoryCreateSheet extends StatefulWidget {
 
 class _CategoryCreateSheetState extends State<_CategoryCreateSheet> {
   final TextEditingController _nameController = TextEditingController();
-  AppIconOption _icon = AppIcons.categoryOptions.first;
+  // 默认选中本类型候选集的第一项（支出不会落到「工资」上去）
+  late AppIconOption _icon =
+      AppIcons.optionsFor(widget.type == TxType.income).first;
   AppColorOption _color = AppIcons.colorPalette.first;
 
   @override
@@ -898,14 +907,8 @@ class _CategoryCreateSheetState extends State<_CategoryCreateSheet> {
                   color: c.ink,
                 ),
                 cursorColor: c.green,
-                decoration: InputDecoration(
-                  hintText: '分类名称',
-                  hintStyle: TextStyle(color: c.ink3),
-                  counterText: '',
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: c.green),
-                  ),
-                ),
+                decoration:
+                    AppDialog.fieldDecoration(context, hintText: '分类名称'),
               ),
               const SizedBox(height: AppDimens.pageGap),
               Text('图标', style: TextStyle(
@@ -915,16 +918,22 @@ class _CategoryCreateSheetState extends State<_CategoryCreateSheet> {
               )),
               const SizedBox(height: 8),
               _OptionGrid(
-                options: AppIcons.categoryOptions,
+                options: AppIcons.optionsFor(widget.type == TxType.income),
                 selectedKey: _icon.key,
                 itemBuilder: (option, selected) => Container(
+                  // 同上：固定尺寸才能让背景框比图标大一圈
+                  width: AppDimens.optionChipSize,
+                  height: AppDimens.optionChipSize,
                   decoration: BoxDecoration(
                     color: selected ? c.greenLight : c.track,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius:
+                        BorderRadius.circular(AppDimens.optionChipRadius),
                     border: selected ? Border.all(color: c.green) : null,
                   ),
+                  alignment: Alignment.center,
                   child: Icon(option.icon,
-                      size: 20, color: selected ? c.green : c.ink2),
+                      size: AppDimens.optionChipGlyph,
+                      color: selected ? c.green : c.ink2),
                 ),
                 onTap: (option) => setState(() => _icon = option),
               ),
@@ -939,6 +948,8 @@ class _CategoryCreateSheetState extends State<_CategoryCreateSheet> {
                 options: AppIcons.colorPalette,
                 selectedKey: _color.hex,
                 itemBuilder: (option, selected) => Container(
+                  width: AppDimens.optionChipSize,
+                  height: AppDimens.optionChipSize,
                   decoration: BoxDecoration(
                     color: hexToColor(option.hex),
                     shape: BoxShape.circle,
@@ -946,8 +957,9 @@ class _CategoryCreateSheetState extends State<_CategoryCreateSheet> {
                         ? Border.all(color: c.ink, width: 2)
                         : null,
                   ),
+                  alignment: Alignment.center,
                   child: selected
-                      ? const Icon(Icons.check, size: 14, color: AppColors.onGreen)
+                      ? const Icon(Icons.check, size: 16, color: AppColors.onGreen)
                       : null,
                 ),
                 onTap: (option) => setState(() => _color = option),

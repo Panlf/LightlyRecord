@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/constants.dart';
 import '../../core/date_ext.dart';
 import '../../data/model/category.dart';
 import '../../data/model/tx_type.dart';
@@ -11,10 +10,12 @@ import '../../theme/app_dimens.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/amount_input.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_dialog.dart';
 import '../../widgets/app_segment.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/cat_grid.dart';
 import '../../widgets/num_keypad.dart';
+import '../../widgets/tx_form_kit.dart';
 
 /// 记一笔滑入页。
 ///
@@ -24,6 +25,9 @@ import '../../widgets/num_keypad.dart';
 /// - 分类宫格 4 列，随收支态切换；**转账态置灰**，点击 Toast 并回落支出态；
 /// - 金额为 0 时 Toast「请输入金额」且不落库；
 /// - 保存成功后 `AppState.bumpData()`，首页 / 日历 / 图表三处数字同步刷新。
+///
+/// 顶栏 / 备注按钮 / 备注弹窗一律复用 `tx_form_kit` 的共享组件，
+/// 与「编辑记录」页逐像素一致。
 class AddTxPage extends StatefulWidget {
   const AddTxPage({super.key});
 
@@ -84,27 +88,18 @@ class _AddTxPageState extends State<AddTxPage> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: kDatePickerFirst,
-      lastDate: kDatePickerLast,
-      helpText: '选择日期',
-      cancelText: '取消',
-      confirmText: '确定',
+    final picked = await AppDialog.showDate(
+      context,
+      initial: _date,
+      first: kDatePickerFirst,
+      last: kDatePickerLast,
     );
     if (picked == null || !mounted) return;
     setState(() => _date = picked);
   }
 
   Future<void> _editNote() async {
-    final controller = TextEditingController(text: _note);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => _NoteDialog(controller: controller),
-    );
-    // 对话框已关闭，及时释放控制器（避免反复打开备注累积泄漏）
-    controller.dispose();
+    final result = await NoteDialog.show(context, initial: _note);
     if (!mounted) return;
     if (result != null) {
       setState(() => _note = result.trim());
@@ -160,7 +155,8 @@ class _AddTxPageState extends State<AddTxPage> {
       body: SafeArea(
         child: Column(
           children: [
-            _TopBar(
+            FormTopBar(
+              title: '记一笔',
               saving: _saving,
               onCancel: () => Navigator.of(context).pop(),
               onSave: _save,
@@ -252,73 +248,6 @@ class _AddTxPageState extends State<AddTxPage> {
   }
 }
 
-/// 顶栏：取消 / 标题 / 保存。
-class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.saving,
-    required this.onCancel,
-    required this.onSave,
-  });
-
-  final bool saving;
-  final VoidCallback onCancel;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<AppColors>()!;
-
-    return SizedBox(
-      height: 44,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppDimens.pageMargin),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: onCancel,
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  Icon(Icons.chevron_left, size: 17, color: c.ink2),
-                  Text(
-                    '取消',
-                    style: TextStyle(
-                      fontSize: AppTypography.segLabel,
-                      color: c.ink2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '记一笔',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: AppTypography.semiBold,
-                color: c.ink,
-              ),
-            ),
-            const Spacer(),
-            GestureDetector(
-              onTap: saving ? null : onSave,
-              behavior: HitTestBehavior.opaque,
-              child: Text(
-                saving ? '保存中' : '保存',
-                style: TextStyle(
-                  fontSize: AppTypography.segLabel,
-                  fontWeight: AppTypography.semiBold,
-                  color: saving ? c.ink3 : c.green,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// 金额卡：`¥` + 40px 700 大数字 + 备注按钮 + 日期按钮。
 class _AmountCard extends StatelessWidget {
   const _AmountCard({
@@ -371,15 +300,13 @@ class _AmountCard extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                _CardAction(
+                CardActionButton(
                   icon: Icons.edit_outlined,
                   label: note.trim().isEmpty ? '点击添加备注' : note.trim(),
-                  maxLines: 1,
                   onTap: onEditNote,
                 ),
                 const Spacer(),
-                _CardAction(
-                  icon: null,
+                CardActionButton(
                   label: isSameDay(date, today())
                       ? '今天 ${date.month}月${date.day}日'
                       : '${date.month}月${date.day}日 ${weekdayCn(date)}',
@@ -388,176 +315,6 @@ class _AmountCard extends StatelessWidget {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 金额卡内的文字按钮（备注 / 日期）。
-class _CardAction extends StatelessWidget {
-  const _CardAction({
-    required this.label,
-    required this.onTap,
-    this.icon,
-    this.maxLines,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-  final IconData? icon;
-  final int? maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<AppColors>()!;
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 16, color: c.ink3),
-            const SizedBox(width: 4),
-          ],
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 160),
-            child: Text(
-              label,
-              maxLines: maxLines,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: AppTypography.txnNote,
-                color: c.ink3,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 备注输入弹窗（自绘，保证主题 Token 生效）。
-class _NoteDialog extends StatelessWidget {
-  const _NoteDialog({required this.controller});
-
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<AppColors>()!;
-
-    return Dialog(
-      backgroundColor: c.card,
-      surfaceTintColor: c.card,
-      insetPadding: const EdgeInsets.all(AppDimens.dialogMaskPadding),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppDimens.dialogRadius),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppDimens.dialogMaxWidth),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '添加备注',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: AppTypography.pageTitle,
-                  fontWeight: AppTypography.semiBold,
-                  color: c.ink,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                maxLength: AppConstants.maxNoteLength,
-                decoration: InputDecoration(
-                  hintText: '选填，最多 ${AppConstants.maxNoteLength} 字',
-                  hintStyle: TextStyle(
-                    fontSize: AppTypography.body,
-                    color: c.ink3,
-                  ),
-                  filled: true,
-                  fillColor: c.bg,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                style: TextStyle(fontSize: AppTypography.body, color: c.ink),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _DialogButton(
-                      label: '取消',
-                      foreground: c.ink2,
-                      background: c.track,
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _DialogButton(
-                      label: '确定',
-                      foreground: AppColors.onGreen,
-                      background: c.green,
-                      onTap: () =>
-                          Navigator.of(context).pop(controller.text.trim()),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DialogButton extends StatelessWidget {
-  const _DialogButton({
-    required this.label,
-    required this.foreground,
-    required this.background,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color foreground;
-  final Color background;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 46,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: AppTypography.segLabel,
-            fontWeight: AppTypography.medium,
-            color: foreground,
-          ),
         ),
       ),
     );

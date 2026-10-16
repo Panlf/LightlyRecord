@@ -87,8 +87,13 @@ class NumKeypad extends StatelessWidget {
   }
 
   Widget _row({required AppColors colors, required List<_Key> keys}) {
+    // 注意：这里**不能**用 `CrossAxisAlignment.stretch`。
+    // 键盘是页面 Column 的非 flex 子项，纵向约束为无界（h=Infinity），
+    // stretch 会把无界高度直接传给按键，触发
+    // 「BoxConstraints forces an infinite height」——debug 下报红屏，
+    // release 下断言被剥离、布局静默崩坏，整个记一笔页白屏。
+    // 按键自身已有固定高度 52，默认 center 对齐即可。
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < keys.length; i++) ...[
           if (i > 0) const SizedBox(width: AppDimens.keyGap),

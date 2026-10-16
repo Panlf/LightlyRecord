@@ -11,6 +11,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_dimens.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_dialog.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/empty_view.dart';
@@ -152,57 +153,26 @@ class _BooksPageState extends State<BooksPage> {
 
   /// 长按非默认账本 → 管理弹窗（重命名 / 删除）。
   Future<void> _onBookManage(BookController controller, Book book) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        final c = Theme.of(sheetContext).extension<AppColors>()!;
-        return SafeArea(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: AppDimens.pageMargin),
-            padding: const EdgeInsets.all(AppDimens.cardPadding),
-            decoration: BoxDecoration(
-              color: c.card,
-              borderRadius: BorderRadius.circular(AppDimens.cardRadius),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: c.track2,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: AppDimens.pageGap),
-                Text(
-                  book.name,
-                  style: TextStyle(
-                    fontSize: AppTypography.cardTitle,
-                    fontWeight: AppTypography.semiBold,
-                    color: c.ink,
-                  ),
-                ),
-                const SizedBox(height: AppDimens.pageGap),
-                _SheetAction(
-                  icon: Icons.edit_outlined,
-                  label: '重命名',
-                  color: c.ink,
-                  onTap: () => Navigator.pop(sheetContext, 'rename'),
-                ),
-                _SheetAction(
-                  icon: Icons.delete_outline,
-                  label: '删除账本',
-                  color: c.red,
-                  onTap: () => Navigator.pop(sheetContext, 'delete'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    final c = Theme.of(context).extension<AppColors>()!;
+    final count = controller.txnCounts[book.id] ?? 0;
+    final action = await AppDialog.showSheet<String>(
+      context,
+      title: book.name,
+      children: [
+        AppSheetOption(
+          icon: Icons.edit_outlined,
+          label: '重命名',
+          desc: '修改账本名称',
+          onTap: () => Navigator.pop(context, 'rename'),
+        ),
+        AppSheetOption(
+          icon: Icons.delete_outline,
+          label: '删除账本',
+          desc: count > 0 ? '账本内 $count 笔交易将一并删除' : '删除后不可恢复',
+          color: c.red,
+          onTap: () => Navigator.pop(context, 'delete'),
+        ),
+      ],
     );
     if (action == null || !mounted) return;
 
@@ -213,7 +183,6 @@ class _BooksPageState extends State<BooksPage> {
         onConfirm: (value) => controller.renameBook(book.id, value),
       );
     } else if (action == 'delete') {
-      final count = controller.txnCounts[book.id] ?? 0;
       final ok = await ConfirmDialog.show(
         context,
         title: '删除账本「${book.name}」？',
@@ -246,59 +215,13 @@ class _BooksPageState extends State<BooksPage> {
     required Future<String?> Function(String) onConfirm,
     String Function(String)? successMessage,
   }) async {
-    final textController = TextEditingController(text: initial);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {        final c = Theme.of(dialogContext).extension<AppColors>()!;
-        return AlertDialog(
-          backgroundColor: c.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppDimens.dialogRadius),
-          ),
-          title: Text(
-            title,
-            style: TextStyle(
-              fontSize: AppTypography.cardTitle,
-              fontWeight: AppTypography.semiBold,
-              color: c.ink,
-            ),
-          ),
-          content: TextField(
-            controller: textController,
-            autofocus: true,
-            maxLength: 20,
-            style: TextStyle(fontSize: AppTypography.segLabel, color: c.ink),
-            cursorColor: c.green,
-            decoration: InputDecoration(
-              hintText: '请输入账本名称',
-              hintStyle: TextStyle(color: c.ink3),
-              counterText: '',
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: c.green),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text('取消', style: TextStyle(color: c.ink2)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, textController.text),
-              child: Text(
-                '确定',
-                style: TextStyle(
-                  color: c.green,
-                  fontWeight: AppTypography.semiBold,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    final name = await AppDialog.showInput(
+      context,
+      title: title,
+      hint: '请输入账本名称',
+      initial: initial,
+      maxLength: 20,
     );
-    // 对话框已关闭，及时释放控制器
-    textController.dispose();
     if (name == null || name.trim().isEmpty || !mounted) return;
     final error = await onConfirm(name.trim());
     if (!mounted) return;
@@ -310,7 +233,10 @@ class _BooksPageState extends State<BooksPage> {
   }
 }
 
-/// 账本行：图标 + 名称（使用中标签）+ 副标题 + 金额；当前本 2px 主色描边。
+/// 账本行：图标 + 名称（使用中标签）+ 副标题 + 金额。
+///
+/// 当前账本只用「使用中」标签 + 金额高亮表达，卡片外不再套描边圈
+/// （描边与卡片投影叠加会显脏，且与宫格/列表的其它行不统一）。
 class _BookRow extends StatelessWidget {
   const _BookRow({
     required this.book,
@@ -340,80 +266,72 @@ class _BookRow extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       padding: const EdgeInsets.all(14),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppDimens.cardRadius),
-          // 当前账本 2px 主色描边（选中态）
-          border: isCurrent ? Border.all(color: c.green, width: 2) : null,
-        ),
-        padding: const EdgeInsets.all(2),
-        child: Row(
-          children: [
-            // 44×44 圆角 14 图标（数据色淡化底 + 数据色图标）
-            Container(
-              width: AppDimens.bookIconSize,
-              height: AppDimens.bookIconSize,
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppDimens.bookIconRadius),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                AppIcons.of(book.iconKey),
-                size: 22,
-                color: iconColor,
-              ),
+      child: Row(
+        children: [
+          // 44×44 圆角 14 图标（数据色淡化底 + 数据色图标）
+          Container(
+            width: AppDimens.bookIconSize,
+            height: AppDimens.bookIconSize,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppDimens.bookIconRadius),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          book.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: AppTypography.txnName,
-                            fontWeight: AppTypography.medium,
-                            color: c.ink,
-                          ),
+            alignment: Alignment.center,
+            child: Icon(
+              AppIcons.of(book.iconKey),
+              size: 22,
+              color: iconColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        book.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: AppTypography.txnName,
+                          fontWeight: AppTypography.medium,
+                          color: c.ink,
                         ),
                       ),
-                      if (isCurrent) ...[
-                        const SizedBox(width: 6),
-                        const _CurrentTag(),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _subtitle(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: AppTypography.txnNote,
-                      color: c.ink2,
                     ),
+                    if (isCurrent) ...[
+                      const SizedBox(width: 6),
+                      const _CurrentTag(),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _subtitle(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: AppTypography.txnNote,
+                    color: c.ink2,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(
-              fmtMoney(totalExpenseMinor),
-              style: TextStyle(
-                fontSize: AppTypography.txnAmount,
-                fontWeight: AppTypography.semiBold,
-                color: isCurrent ? c.ink : c.ink2,
-              ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            fmtMoney(totalExpenseMinor),
+            style: TextStyle(
+              fontSize: AppTypography.txnAmount,
+              fontWeight: AppTypography.semiBold,
+              color: isCurrent ? c.ink : c.ink2,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -599,42 +517,3 @@ class _StatCell extends StatelessWidget {
   }
 }
 
-/// 管理弹窗操作行。
-class _SheetAction extends StatelessWidget {
-  const _SheetAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppDimens.segItemRadius),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
-        child: Row(
-          children: [
-            Icon(icon, size: 19, color: color),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: AppTypography.segLabel,
-                fontWeight: AppTypography.medium,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

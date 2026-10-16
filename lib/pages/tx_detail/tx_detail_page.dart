@@ -13,11 +13,13 @@ import '../../theme/app_dimens.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/amount_input.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_dialog.dart';
 import '../../widgets/app_segment.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/cat_grid.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/num_keypad.dart';
+import '../../widgets/tx_form_kit.dart';
 
 /// 交易详情 / 编辑 / 删除滑入页（R17，原型未覆盖的原生新增页面）。
 ///
@@ -120,27 +122,18 @@ class _TxDetailPageState extends State<TxDetailPage> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: kDatePickerFirst,
-      lastDate: kDatePickerLast,
-      helpText: '选择日期',
-      cancelText: '取消',
-      confirmText: '确定',
+    final picked = await AppDialog.showDate(
+      context,
+      initial: _date,
+      first: kDatePickerFirst,
+      last: kDatePickerLast,
     );
     if (picked == null || !mounted) return;
     setState(() => _date = picked);
   }
 
   Future<void> _editNote() async {
-    final controller = TextEditingController(text: _note);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => _NoteDialog(controller: controller),
-    );
-    // 对话框已关闭，及时释放控制器（避免反复打开备注累积泄漏）
-    controller.dispose();
+    final result = await NoteDialog.show(context, initial: _note);
     if (!mounted) return;
     if (result != null) {
       setState(() => _note = result.trim());
@@ -699,131 +692,6 @@ class _CardAction extends StatelessWidget {
   }
 }
 
-/// 备注输入弹窗。
-class _NoteDialog extends StatelessWidget {
-  const _NoteDialog({required this.controller});
-
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<AppColors>()!;
-
-    return Dialog(
-      backgroundColor: c.card,
-      surfaceTintColor: c.card,
-      insetPadding: const EdgeInsets.all(AppDimens.dialogMaskPadding),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppDimens.dialogRadius),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppDimens.dialogMaxWidth),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '添加备注',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: AppTypography.pageTitle,
-                  fontWeight: AppTypography.semiBold,
-                  color: c.ink,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                maxLength: 50,
-                decoration: InputDecoration(
-                  hintText: '选填，最多 50 字',
-                  hintStyle: TextStyle(
-                    fontSize: AppTypography.body,
-                    color: c.ink3,
-                  ),
-                  filled: true,
-                  fillColor: c.bg,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                style: TextStyle(fontSize: AppTypography.body, color: c.ink),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _DialogButton(
-                      label: '取消',
-                      foreground: c.ink2,
-                      background: c.track,
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _DialogButton(
-                      label: '确定',
-                      foreground: AppColors.onGreen,
-                      background: c.green,
-                      onTap: () =>
-                          Navigator.of(context).pop(controller.text.trim()),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DialogButton extends StatelessWidget {
-  const _DialogButton({
-    required this.label,
-    required this.foreground,
-    required this.background,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color foreground;
-  final Color background;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 46,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: AppTypography.segLabel,
-            fontWeight: AppTypography.medium,
-            color: foreground,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 交易不存在（已被删除 / id 非法）。
 class _NotFound extends StatelessWidget {
   const _NotFound({required this.onRetry});
 

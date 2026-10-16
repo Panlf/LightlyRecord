@@ -138,7 +138,7 @@ class _CatCell extends StatelessWidget {
                   : null,
             ),
             alignment: Alignment.center,
-            child: Icon(icon, size: 22, color: fg),
+            child: Icon(icon, size: AppDimens.catIconGlyph, color: fg),
           ),
           const SizedBox(height: 6),
           Text(

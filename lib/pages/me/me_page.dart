@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_config.dart';
@@ -11,10 +12,13 @@ import '../../state/me_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_dimens.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/avatar_store.dart';
 import '../../utils/export_service.dart';
 import '../../widgets/about_dialog.dart' as about;
 import '../../widgets/app_card.dart';
+import '../../widgets/app_dialog.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/user_avatar.dart';
 import '../../widgets/empty_view.dart';
 
 /// 我的页：用户卡（全局口径统计）+ 菜单六项 + 版本行。
@@ -90,17 +94,36 @@ class _MePageState extends State<MePage> {
                 children: [
                   Row(
                     children: [
-                      // 56px 头像（主色淡化底 + 主色图标）
-                      Container(
-                        width: AppDimens.avatarSize,
-                        height: AppDimens.avatarSize,
-                        decoration: BoxDecoration(
-                          color: c.greenLight,
-                          shape: BoxShape.circle,
+                      // 56px 头像（已设置显示本地图片，否则默认人像）
+                      GestureDetector(
+                        onTap: _onAvatarTap,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            UserAvatar(
+                              size: AppDimens.avatarSize,
+                              path: appState.avatarPath,
+                              iconSize: 28,
+                            ),
+                            // 右下角小徽标：提示「点这里换头像」
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: c.green,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: c.card, width: 2),
+                                ),
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.photo_outlined,
+                                    size: 11, color: AppColors.onGreen),
+                              ),
+                            ),
+                          ],
                         ),
-                        alignment: Alignment.center,
-                        child: Icon(Icons.person_outline,
-                            size: 28, color: c.greenDeep),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -184,30 +207,35 @@ class _MePageState extends State<MePage> {
               label: '预算管理',
               onTap: () => Navigator.pushNamed(context, AppRoutes.budget),
             ),
+            const SizedBox(height: 10),
             _MenuRow(
               iconKey: 'book',
               colorHex: AppIcons.colorPalette[1].hex,
               label: '账本与分类',
               onTap: () => Navigator.pushNamed(context, AppRoutes.category),
             ),
+            const SizedBox(height: 10),
             _MenuRow(
               iconKey: 'download',
               colorHex: AppIcons.colorPalette[2].hex,
               label: '数据导出',
               onTap: _onExport,
             ),
+            const SizedBox(height: 10),
             _MenuRow(
               iconKey: 'bell',
               colorHex: AppIcons.colorPalette[3].hex,
               label: '记账提醒',
               onTap: () => AppToast.show('记账提醒将在后续版本开放'),
             ),
+            const SizedBox(height: 10),
             _MenuRow(
               iconKey: 'palette',
               colorHex: AppIcons.colorPalette[4].hex,
               label: '主题外观',
               onTap: () => Navigator.pushNamed(context, AppRoutes.theme),
             ),
+            const SizedBox(height: 10),
             _MenuRow(
               iconKey: 'info',
               colorHex: AppIcons.colorPalette[5].hex,
@@ -232,62 +260,90 @@ class _MePageState extends State<MePage> {
     );
   }
 
+  /// 点头像 → 面板：从相册选择 / 移除头像。
+  Future<void> _onAvatarTap() async {
+    final c = Theme.of(context).extension<AppColors>()!;
+    final appState = context.read<AppState>();
+    final hasAvatar = appState.avatarPath.isNotEmpty;
+
+    final action = await AppDialog.showSheet<String>(
+      context,
+      title: '设置头像',
+      children: [
+        AppSheetOption(
+          icon: Icons.photo_library_outlined,
+          label: '从相册选择',
+          desc: '选一张图片作为头像',
+          onTap: () => Navigator.pop(context, 'gallery'),
+        ),
+        if (hasAvatar)
+          AppSheetOption(
+            icon: Icons.delete_outline,
+            label: '移除头像',
+            desc: '恢复为默认人像',
+            color: c.red,
+            onTap: () => Navigator.pop(context, 'remove'),
+          ),
+      ],
+    );
+    if (action == null || !mounted) return;
+    if (action == 'gallery') {
+      await _pickAvatar(appState);
+    } else if (action == 'remove') {
+      await _removeAvatar(appState);
+    }
+  }
+
+  /// 从相册选图 → 复制到私有目录 → 落盘 pref → 广播刷新。
+  ///
+  /// 选图统一压缩到 640px / 质量 88：头像展示最大只有 56px，
+  /// 存原图纯粹浪费空间。取消选择 / 权限被拒都不算错误，静默返回。
+  Future<void> _pickAvatar(AppState appState) async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 640,
+        maxHeight: 640,
+        imageQuality: 88,
+      );
+      if (picked == null || !mounted) return;
+
+      final saved = await AvatarStore.save(picked.path);
+      if (!mounted) return;
+      if (saved == null) {
+        AppToast.show('头像保存失败', error: true);
+        return;
+      }
+      await appState.prefRepo.setAvatarPath(saved);
+      if (!mounted) return;
+      appState.refreshAvatar(saved);
+      AppToast.show('头像已更新');
+    } catch (e) {
+      debugPrint('pickImage failed: $e');
+      if (!mounted) return;
+      AppToast.show('无法打开相册，请检查权限', error: true);
+    }
+  }
+
+  /// 移除头像：删文件 → 清空 pref → 广播回落默认人像。
+  Future<void> _removeAvatar(AppState appState) async {
+    await AvatarStore.clear();
+    await appState.prefRepo.setAvatarPath('');
+    if (!mounted) return;
+    appState.refreshAvatar('');
+    AppToast.show('已恢复默认头像');
+  }
+
   /// 编辑昵称：落盘 pref + 广播 AppState（首页问候语联动）。
   Future<void> _onEditNickname() async {
     final appState = context.read<AppState>();
-    final controller = TextEditingController(text: appState.nickname);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {        final c = Theme.of(dialogContext).extension<AppColors>()!;
-        return AlertDialog(
-          backgroundColor: c.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppDimens.dialogRadius),
-          ),
-          title: Text(
-            '修改昵称',
-            style: TextStyle(
-              fontSize: AppTypography.cardTitle,
-              fontWeight: AppTypography.semiBold,
-              color: c.ink,
-            ),
-          ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLength: 12,
-            style: TextStyle(fontSize: AppTypography.segLabel, color: c.ink),
-            cursorColor: c.green,
-            decoration: InputDecoration(
-              hintText: '请输入昵称',
-              hintStyle: TextStyle(color: c.ink3),
-              counterText: '',
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: c.green),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text('取消', style: TextStyle(color: c.ink2)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, controller.text),
-              child: Text(
-                '确定',
-                style: TextStyle(
-                  color: c.green,
-                  fontWeight: AppTypography.semiBold,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    final name = await AppDialog.showInput(
+      context,
+      title: '修改昵称',
+      hint: '请输入昵称',
+      initial: appState.nickname,
+      maxLength: 12,
     );
-    // 对话框已关闭，及时释放控制器
-    controller.dispose();
     final trimmed = (name ?? '').trim();
     if (trimmed.isEmpty || !mounted) return;
     await appState.prefRepo.setNickname(trimmed);
@@ -297,56 +353,23 @@ class _MePageState extends State<MePage> {
 
   /// 数据导出：选格式 → Repository 取数 → 生成 → 落盘 → 分享（失败降级）。
   Future<void> _onExport() async {
-    final format = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        final c = Theme.of(sheetContext).extension<AppColors>()!;
-        return SafeArea(
-          child: Container(
-            margin:
-                const EdgeInsets.symmetric(horizontal: AppDimens.pageMargin),
-            padding: const EdgeInsets.all(AppDimens.cardPadding),
-            decoration: BoxDecoration(
-              color: c.card,
-              borderRadius: BorderRadius.circular(AppDimens.cardRadius),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: c.track2,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: AppDimens.pageGap),
-                Text(
-                  '导出数据',
-                  style: TextStyle(
-                    fontSize: AppTypography.cardTitle,
-                    fontWeight: AppTypography.semiBold,
-                    color: c.ink,
-                  ),
-                ),
-                const SizedBox(height: AppDimens.pageGap),
-                _ExportOption(
-                  label: 'CSV 表格',
-                  desc: '可用 Excel 直接打开',
-                  onTap: () => Navigator.pop(sheetContext, 'csv'),
-                ),
-                _ExportOption(
-                  label: 'JSON 文件',
-                  desc: '含全部账本 / 分类 / 交易字段',
-                  onTap: () => Navigator.pop(sheetContext, 'json'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    final format = await AppDialog.showSheet<String>(
+      context,
+      title: '导出数据',
+      children: [
+        AppSheetOption(
+          icon: AppIcons.of('download'),
+          label: 'CSV 表格',
+          desc: '可用 Excel 直接打开',
+          onTap: () => Navigator.pop(context, 'csv'),
+        ),
+        AppSheetOption(
+          icon: AppIcons.of('download'),
+          label: 'JSON 文件',
+          desc: '含全部账本 / 分类 / 交易字段',
+          onTap: () => Navigator.pop(context, 'json'),
+        ),
+      ],
     );
     if (format == null || !mounted) return;
 
@@ -433,57 +456,6 @@ class _MenuRow extends StatelessWidget {
           const Spacer(),
           Icon(Icons.chevron_right, size: 18, color: c.ink3),
         ],
-      ),
-    );
-  }
-}
-
-/// 导出格式选项行。
-class _ExportOption extends StatelessWidget {
-  const _ExportOption({
-    required this.label,
-    required this.desc,
-    required this.onTap,
-  });
-
-  final String label;
-  final String desc;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<AppColors>()!;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppDimens.segItemRadius),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        child: Row(
-          children: [
-            Icon(AppIcons.of('download'), size: 19, color: c.green),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: AppTypography.segLabel,
-                    fontWeight: AppTypography.medium,
-                    color: c.ink,
-                  ),
-                ),
-                Text(
-                  desc,
-                  style: TextStyle(
-                    fontSize: AppTypography.txnNote,
-                    color: c.ink2,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

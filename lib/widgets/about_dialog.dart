@@ -5,6 +5,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_typography.dart';
 
+import 'app_dialog.dart';
+
 /// 「关于轻记」弹窗（R22）。
 ///
 /// 6 条功能说明 + `package_info_plus` 真实版本号（失败回落 `AppConfig.fallbackVersion`）。
@@ -161,25 +163,11 @@ class _AboutBody extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              GestureDetector(
+              AppDialogButton(
+                label: '知道了',
+                foreground: AppColors.onGreen,
+                background: c.green,
                 onTap: () => Navigator.of(context).pop(),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  height: 46,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: c.green,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text(
-                    '知道了',
-                    style: TextStyle(
-                      fontSize: AppTypography.segLabel,
-                      fontWeight: AppTypography.medium,
-                      color: AppColors.white,
-                    ),
-                  ),
-                ),
               ),
             ],
           ),

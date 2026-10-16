@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 8+ 自适应图标：渐变绿底 + 白色「记」字前景。
+     前景图形收在中央 66dp 安全区内，任何形状的遮罩（圆 / 圆角方 / 水滴）
+     都不会把字切掉。 -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

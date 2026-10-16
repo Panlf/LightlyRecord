@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应图标背景：品牌绿竖向渐变（#6BD0A8 → #2F9B79）。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:endColor="#2F9B79"
+        android:startColor="#6BD0A8"
+        android:type="linear" />
+</shape>

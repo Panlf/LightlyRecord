@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
@@ -5,13 +6,13 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 
-/// 山峦两段式 FAB。
+/// 波浪两段式 FAB（记一笔入口）。
 ///
-/// 行为与视觉严格对齐原型 `.fab`：
-/// - **收起态**：整体右移 `宽 + 4`，仅左缘约 18px 探入屏幕；
-///   左缘为山峦锯齿（齿尖探向屏幕内）；
-/// - **展开态**：300ms 缓动展开为 114px 宽，锯齿抹平为直左缘，
-///   淡入白色加号 + 「记一笔」文案；主色投影；
+/// 行为与视觉：
+/// - **收起态**：整体右移，仅左缘约 26px 探入屏幕；左缘是一条平滑的
+///   **波浪**（由 [_FabPainter] 自绘，上下两个波峰），取代原来的方角矩形；
+/// - **展开态**：300ms 缓动展开为 114px 宽，波浪抹平、四角化成 27px
+///   大圆角胶囊，淡入白色加号 + 「记一笔」文案；主色投影跟随轮廓；
 /// - 展开态点击 → 触发 [onTap]（跳记一笔）并收起；
 /// - 展开态点击屏幕任意处 → 收起（自包含 Overlay 屏障，
 ///   不依赖 main_shell 改动）；
@@ -111,36 +112,32 @@ class _MountainFabState extends State<MountainFab>
       builder: (context, _) {
         // 与原型同一缓动曲线
         final t = AppDimens.slideCurve.transform(_controller.value);
-        final width = lerpDouble(AppDimens.fabSize, AppDimens.fabExpandedWidth, t)!;
-        // 收起态右移「宽 + 4」，左缘约 18px 探入屏幕
-        final offsetX = lerpDouble(AppDimens.fabSize + 4, 0, t)!;
+        final width =
+            lerpDouble(AppDimens.fabSize, AppDimens.fabExpandedWidth, t)!;
+        // 收起态右移，左缘约 26px 探入屏幕
+        final offsetX = lerpDouble(AppDimens.fabPeekOffset, 0, t)!;
 
         return Transform.translate(
           offset: Offset(offsetX, 0),
           child: GestureDetector(
             onTap: _handleTap,
-            child: Container(
-              width: width,
-              height: AppDimens.fabSize,
-              decoration: BoxDecoration(
+            child: CustomPaint(
+              painter: _FabPainter(
                 color: c.green,
-                boxShadow: [
-                  BoxShadow(
-                    color: c.fabShadow,
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                shadow: c.fabShadow,
+                progress: t,
               ),
-              child: ClipPath(
-                clipper: _MountainClipper(t),
+              child: SizedBox(
+                width: width,
+                height: AppDimens.fabSize,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // 加号与文案随展开淡入（收起态探出部分看不到）
                     Opacity(
                       opacity: t,
-                      child: const Icon(Icons.add, size: 24, color: AppColors.onGreen),
+                      child: const Icon(Icons.add,
+                          size: 24, color: AppColors.onGreen),
                     ),
                     if (t > 0) ...[
                       SizedBox(width: 7 * t),
@@ -167,36 +164,92 @@ class _MountainFabState extends State<MountainFab>
   }
 }
 
-/// 山峦锯齿裁剪器。
+/// FAB 轮廓绘制器：主色填充 + 柔和投影，形状随展开进度插值。
 ///
-/// 收起态（progress = 0）左缘为 8 齿锯齿（齿深 24%），
-/// 展开态（progress = 1）齿深归零、左缘抹平——与原型两个
-/// 点数一致的 polygon 对应，可随动画平滑过渡。
-class _MountainClipper extends CustomClipper<Path> {
-  const _MountainClipper(this.progress);
+/// - `progress = 0`（收起）：四角无圆角，左缘为 [AppDimens.fabWaveCycles]
+///   个周期的余弦波浪（振幅 [AppDimens.fabWaveAmplitude]）；
+/// - `progress = 1`（展开）：波浪振幅归零、四角变成 [AppDimens.fabRadius]
+///   圆角 → 胶囊。
+///
+/// 用自绘而不是 `ClipPath` 的理由：投影必须**跟着轮廓**走。若用外层
+/// Container 画投影 + 内层裁剪主色块，被波浪裁掉的区域仍会残留投影，
+/// 边缘出现一圈脏阴影。
+class _FabPainter extends CustomPainter {
+  const _FabPainter({
+    required this.color,
+    required this.shadow,
+    required this.progress,
+  });
 
-  /// 0 = 收起（锯齿最深），1 = 展开（左缘平直）。
+  /// 主色填充。
+  final Color color;
+
+  /// 投影色。
+  final Color shadow;
+
+  /// 0 = 收起（波浪最深），1 = 展开（胶囊）。
   final double progress;
 
   @override
-  Path getClip(Size size) {
-    final toothDepth = 0.24 * (1 - progress);
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height);
+  void paint(Canvas canvas, Size size) {
+    final path = _buildPath(size);
 
-    // 自下往上沿左缘走 8 个齿（y 从 .88 到 .04，偶数齿贴边、奇数齿探入）
-    for (var i = 0; i < 8; i++) {
-      final y = size.height * (0.88 - 0.12 * i);
-      final x = size.width * (i.isEven ? 0 : toothDepth);
-      path.lineTo(x, y);
-    }
-    path.close();
-    return path;
+    // 投影：轮廓下方 8px、模糊 10（等价于 BoxShadow blurRadius 20）
+    canvas.save();
+    canvas.translate(0, 8);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = shadow
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+    );
+    canvas.restore();
+
+    canvas.drawPath(path, Paint()..color = color);
   }
 
   @override
-  bool shouldReclip(covariant _MountainClipper old) => old.progress != progress;
+  bool shouldRepaint(covariant _FabPainter old) =>
+      old.progress != progress ||
+      old.color != color ||
+      old.shadow != shadow;
+
+  Path _buildPath(Size size) {
+    final w = size.width;
+    final h = size.height;
+    final amp = AppDimens.fabWaveAmplitude * (1 - progress);
+    final r = AppDimens.fabRadius * progress;
+
+    final p = Path()
+      ..moveTo(r, 0)
+      ..lineTo(w - r, 0);
+    if (r > 0) {
+      p.arcToPoint(Offset(w, r), radius: Radius.circular(r));
+    }
+    p.lineTo(w, h - r);
+    if (r > 0) {
+      p.arcToPoint(Offset(w - r, h), radius: Radius.circular(r));
+    }
+    p.lineTo(r, h);
+    if (r > 0) {
+      p.arcToPoint(Offset(0, h - r), radius: Radius.circular(r));
+    }
+
+    // 左缘波浪：自下而上采样，保证上下端点与圆角衔接
+    const steps = 44;
+    final top = r;
+    final bottom = h - r;
+    for (var i = 0; i <= steps; i++) {
+      final u = i / steps;
+      final y = bottom + (top - bottom) * u;
+      final x =
+          amp * (1 - math.cos(2 * math.pi * AppDimens.fabWaveCycles * u)) / 2;
+      p.lineTo(x, y);
+    }
+    if (r > 0) {
+      p.arcToPoint(Offset(r, 0), radius: Radius.circular(r));
+    }
+    p.close();
+    return p;
+  }
 }

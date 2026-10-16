@@ -4,6 +4,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_typography.dart';
 
+import 'app_dialog.dart';
+
 /// 二次确认弹窗（删除交易用）。
 ///
 /// 标题「删除这笔记录？」+ 正文「删除后不可恢复」+ 取消 / 删除（红）。
@@ -114,7 +116,7 @@ class _ConfirmBody extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: _DialogButton(
+                    child: AppDialogButton(
                       label: cancelLabel,
                       foreground: c.ink2,
                       background: c.track,
@@ -123,7 +125,7 @@ class _ConfirmBody extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _DialogButton(
+                    child: AppDialogButton(
                       label: confirmLabel,
                       foreground: AppColors.white,
                       background: confirmColor,
@@ -134,45 +136,6 @@ class _ConfirmBody extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 弹窗按钮。
-class _DialogButton extends StatelessWidget {
-  final String label;
-  final Color foreground;
-  final Color background;
-  final VoidCallback onTap;
-
-  const _DialogButton({
-    required this.label,
-    required this.foreground,
-    required this.background,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 46,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: AppTypography.segLabel,
-            fontWeight: AppTypography.medium,
-            color: foreground,
           ),
         ),
       ),

@@ -108,6 +108,16 @@ extension PrefRepositoryX on PrefRepository {
   /// 写入昵称。
   Future<void> setNickname(String name) => set(AppConstants.prefKeyNickname, name.trim());
 
+  /// 头像本地路径（未设置返回空串）。
+  ///
+  /// 空串而非 `null`：偏好表存的是字符串，空串即「用户主动移除了头像」。
+  Future<String> avatarPath() =>
+      get(AppConstants.prefKeyAvatarPath).then((v) => v ?? '');
+
+  /// 写入头像路径（传空串 = 移除头像）。
+  Future<void> setAvatarPath(String path) =>
+      set(AppConstants.prefKeyAvatarPath, path);
+
   /// 示例数据是否已载入。
   Future<bool> sampleLoaded() => getBool(AppConstants.prefKeySampleLoaded, false);
 

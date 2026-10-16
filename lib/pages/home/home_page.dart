@@ -18,6 +18,7 @@ import '../../widgets/app_toast.dart';
 import '../../widgets/empty_view.dart';
 import '../../widgets/progress_track.dart';
 import '../../widgets/tx_tile.dart';
+import '../../widgets/user_avatar.dart';
 import '../shell/main_shell.dart';
 
 /// 今日页：页头 + 概览卡 + 今日支出卡 + 预算卡（默认隐藏）+ 当日明细。
@@ -81,7 +82,11 @@ class _HomePageState extends State<HomePage> {
               bottom: AppDimens.tabBarHeight + 24,
             ),
             children: [
-              _Header(bookName: appState.bookName, nickname: appState.nickname),
+              _Header(
+                bookName: appState.bookName,
+                nickname: appState.nickname,
+                avatarPath: appState.avatarPath,
+              ),
               const SizedBox(height: AppDimens.pageGap),
               if (stats == null)
                 controller.error != null
@@ -125,13 +130,20 @@ class _HomePageState extends State<HomePage> {
 
 /// 页头：问候语 + 当前账本名 + 36px 头像。
 class _Header extends StatelessWidget {
-  const _Header({required this.bookName, required this.nickname});
+  const _Header({
+    required this.bookName,
+    required this.nickname,
+    required this.avatarPath,
+  });
 
   /// 当前账本名（跟随 AppState 切换联动）。
   final String bookName;
 
   /// 用户昵称（问候语「下午好，XX」用）。
   final String nickname;
+
+  /// 头像本地路径（与我的页同一份，空串回落默认人像）。
+  final String avatarPath;
 
   @override
   Widget build(BuildContext context) {
@@ -168,15 +180,10 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            width: AppDimens.avatarSm,
-            height: AppDimens.avatarSm,
-            decoration: BoxDecoration(
-              color: c.greenLight,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Icon(Icons.person_outline, size: 20, color: c.greenDeep),
+          UserAvatar(
+            size: AppDimens.avatarSm,
+            path: avatarPath,
+            iconSize: 20,
           ),
         ],
       ),

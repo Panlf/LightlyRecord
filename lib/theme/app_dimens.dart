@@ -72,6 +72,18 @@ class AppDimens {
   /// FAB 展开后宽度 114。
   static const double fabExpandedWidth = 114;
 
+  /// 收起态右移量 50 → 左缘探出屏幕 26px（给波浪留足展示空间）。
+  static const double fabPeekOffset = 50;
+
+  /// 收起态波浪振幅（展开态归零）。
+  static const double fabWaveAmplitude = 7;
+
+  /// 波浪周期数（左缘上下两个波峰）。
+  static const double fabWaveCycles = 2;
+
+  /// 展开态胶囊圆角（= 高度 / 2）。
+  static const double fabRadius = 27;
+
   // ---------------------------------------------------------------- 分段控件
   /// 大分段高 44。
   static const double segHeight = 44;
@@ -110,6 +122,20 @@ class AppDimens {
   /// 「完成」键宽倍率（约 2.02）。
   static const double keyDoneFlex = 2.02;
 
+  // ---------------------------------------------------------------- 日历
+  /// 日期格行 / 列间距 2。
+  ///
+  /// **列间距不能是 0**：相邻格子一旦紧贴，选中的实心块就会被有热度底色的
+  /// 邻格「续」上去——邻格有底色时边缘看着是直的，没底色（如当天无记录的
+  /// 今天）就露出自己的圆角，于是选中块左右边缘时直时圆，像被削了一刀。
+  static const double calCellGap = 2;
+
+  /// 日期格高度 50。
+  static const double calCellHeight = 50;
+
+  /// 日期格圆角 14。
+  static const double calCellRadius = 14;
+
   // ---------------------------------------------------------------- 分类宫格
   /// 分类宫格列数 4。
   static const int catColumns = 4;
@@ -125,6 +151,28 @@ class AppDimens {
 
   /// 宫格间距 12。
   static const double catGap = 12;
+
+  /// 分类图标 22（宫格底 48，直径占比约 46%，四周留白不憋屈）。
+  static const double catIconGlyph = 22;
+
+  // ---------------------------------------------------- 图标 / 颜色选择器格子
+  /// 选择器格子边长 38。
+  ///
+  /// 必须显式给定尺寸：格子若靠 hug 内部的 20px Icon 决定大小，
+  /// 背景圆框就会刚好把图标紧包住，视觉上很憋。
+  static const double optionChipSize = 38;
+
+  /// 选择器格子圆角 12。
+  static const double optionChipRadius = 12;
+
+  /// 选择器格子里的图标 20。
+  static const double optionChipGlyph = 20;
+
+  /// 选择器网格列数 6。
+  static const int optionGridColumns = 6;
+
+  /// 选择器网格间距 8。
+  static const double optionGridGap = 8;
 
   // ---------------------------------------------------------------- 图表
   /// 环形图外径 140。
@@ -228,6 +276,9 @@ class AppDimens {
 
   /// Toast 普通时长 2s。
   static const Duration toastDuration = Duration(seconds: 2);
+
+  /// Toast 圆角 16。
+  static const double toastRadius = 16;
 
   /// Toast 错误时长 2.4s。
   static const Duration toastErrorDuration = Duration(milliseconds: 2400);
